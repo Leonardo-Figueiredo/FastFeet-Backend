@@ -6,6 +6,12 @@ module.exports = {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
+        unique: true,
+      },
+      cpf: {
+        type: Sequelize.STRING,
+        allowNull: false,
+        unique: true,
       },
       name: {
         type: Sequelize.STRING,

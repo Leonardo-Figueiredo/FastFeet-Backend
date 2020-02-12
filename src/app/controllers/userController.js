@@ -12,7 +12,7 @@ class UserController {
         .required()
         .min(6),
     });
-    if (!(await schema.isValid())) {
+    if (!(await schema.isValid(req.body))) {
       return res.status(400).json({ error: 'Validation fails' });
     }
 
