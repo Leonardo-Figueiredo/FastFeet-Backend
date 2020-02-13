@@ -97,8 +97,10 @@ class RecipientsController {
       return res.status(400).json({ error: 'Request is not valid.' });
     }
 
+    const { cpf } = req.body;
+
     const recipient = await Recipients.findOne({
-      where: { cpf: req.body.cpf },
+      where: { cpf },
     });
 
     if (!recipient) {
@@ -107,7 +109,6 @@ class RecipientsController {
 
     const {
       id,
-      cpf,
       name,
       street,
       number,
