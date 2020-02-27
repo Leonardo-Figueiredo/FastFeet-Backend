@@ -26,7 +26,7 @@ class SessionController {
     }
 
     const { id, name } = user;
-    // Token: fastfeetleonardofigs
+
     return res.json({
       user: {
         id,

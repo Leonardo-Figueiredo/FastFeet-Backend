@@ -1,8 +1,6 @@
 import Sequelize, { Model } from 'sequelize';
 import bcrypt from 'bcryptjs';
 
-// sequelize = connection
-
 class User extends Model {
   static init(sequelize) {
     super.init(
