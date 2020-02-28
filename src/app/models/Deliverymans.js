@@ -10,6 +10,12 @@ class Deliverymans extends Model {
       },
       { sequelize }
     );
+
+    return this;
+  }
+
+  static associate(models) {
+    this.belongsTo(models.File, { foreignKey: 'avatar_id' });
   }
 }
 

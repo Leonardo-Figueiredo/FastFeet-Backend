@@ -13,18 +13,29 @@ class DeliverymansController {
         .email()
         .required(),
     });
+    if (!(await schema.isValid(req.body)))
+      return res.status(400).json({ error: 'Request format is not valid.' });
 
     const userIsAdmin = await User.findOne({
       where: { id: req.userId, admin: true },
     });
-
     if (!userIsAdmin) {
       return res
         .status(401)
         .json({ error: 'Only admins can register a new Deliveryman.' });
     }
 
-    return res.json({ ok: 'true' });
+    const { email, name } = req.body;
+
+    const deliverymanExists = await Deliverymans.findOne({
+      where: { email },
+    });
+    if (deliverymanExists)
+      return res.status(401).json({ error: 'Deliveryman already exists.' });
+
+    const deliveryman = await Deliverymans.create({ name, email });
+
+    return res.json(deliveryman);
   }
 
   async index(req, res) {
