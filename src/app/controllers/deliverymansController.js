@@ -39,16 +39,83 @@ class DeliverymansController {
   }
 
   async index(req, res) {
-    const deliverymans = await Deliverymans.findAll();
+    const deliverymans = await Deliverymans.findAll({ order: ['id'] });
     res.json(deliverymans);
   }
 
   async update(req, res) {
-    res.json();
+    const schema = Yup.object().shape({
+      name: Yup.string().max(45),
+      avatar_id: Yup.number().max(3),
+      email: Yup.string().email(),
+      oldEmail: Yup.string()
+        .email()
+        .when('email', (email, field) => (email ? field.required() : field)),
+    });
+
+    if (!(await schema.isValid(req.body))) {
+      return res.status(400).json({ error: 'Request is not valid.' });
+    }
+
+    const userIsAdmin = await User.findOne({
+      where: { id: req.userId, admin: true },
+    });
+    if (!userIsAdmin) {
+      return res
+        .status(401)
+        .json({ error: 'Only admins can register a new Deliveryman.' });
+    }
+
+    const { email, oldEmail, avatar_id } = req.body;
+
+    const deliveryman = await Deliverymans.findOne({
+      where: { email: oldEmail },
+    });
+    if (!deliveryman) {
+      return res.status(404).json({ error: 'Deliveryman not found.' });
+    }
+
+    if (email) {
+      const emailExists = await Deliverymans.findOne({
+        where: { email },
+      });
+      if (emailExists) {
+        return res.status(401).json({ error: 'This email already registred.' });
+      }
+    }
+
+    if (avatar_id) {
+      const file = await Deliverymans.findOne({ where: { avatar_id } });
+      if (file) {
+        return res.status(401).json({ error: 'Avatar is unique.' });
+      }
+    }
+
+    // const { email, name, avatar_id } = await deliveryman.update(req.body);
+    const update = await deliveryman.update(req.body);
+
+    return res.json(update);
   }
 
   async delete(req, res) {
-    res.json();
+    const userIsAdmin = await User.findOne({
+      where: { id: req.userId, admin: true },
+    });
+    if (!userIsAdmin) {
+      return res
+        .status(401)
+        .json({ error: 'Only admins can register a new Deliveryman.' });
+    }
+
+    const deliveryman = await Deliverymans.findByPk(req.params.id);
+    if (!deliveryman) {
+      return res.status(404).json({ error: 'Deliveryman not found.' });
+    }
+    await deliveryman.destroy();
+
+    return res
+      .status(200)
+      .json({ message: 'The deliveryman has been successfully deleted' });
   }
 }
 
