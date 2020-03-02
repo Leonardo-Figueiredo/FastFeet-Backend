@@ -13,8 +13,12 @@ class Recipients extends Model {
         city: Sequelize.STRING,
         zipcode: Sequelize.STRING,
       },
-      { sequelize }
+      {
+        sequelize,
+      }
     );
+
+    return this;
   }
 }
 
