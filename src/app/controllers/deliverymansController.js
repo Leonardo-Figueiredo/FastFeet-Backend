@@ -39,8 +39,23 @@ class DeliverymansController {
   }
 
   async index(req, res) {
-    const deliverymans = await Deliverymans.findAll({ order: ['id'] });
-    res.json(deliverymans);
+    const shape = Yup.object().shape({
+      page: Yup.number()
+        .positive()
+        .integer(),
+    });
+    if (!(await shape.isValid(req.query))) {
+      return res.status(400).json({ error: 'Page number is not valid.' });
+    }
+
+    const { page = 1 } = req.query;
+
+    const deliverymans = await Deliverymans.findAll({
+      order: ['id'],
+      limit: 20,
+      offset: (page - 1) * 20,
+    });
+    return res.json(deliverymans);
   }
 
   async update(req, res) {
@@ -104,7 +119,7 @@ class DeliverymansController {
     if (!userIsAdmin) {
       return res
         .status(401)
-        .json({ error: 'Only admins can register a new Deliveryman.' });
+        .json({ error: 'Only admins can delete a Deliveryman.' });
     }
 
     const deliveryman = await Deliverymans.findByPk(req.params.id);
