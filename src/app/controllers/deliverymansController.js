@@ -112,7 +112,7 @@ class DeliverymansController {
     return res.json(update);
   }
 
-  async delete(req, res) {
+  async destroy(req, res) {
     const userIsAdmin = await User.findOne({
       where: { id: req.userId, admin: true },
     });
@@ -126,11 +126,14 @@ class DeliverymansController {
     if (!deliveryman) {
       return res.status(404).json({ error: 'Deliveryman not found.' });
     }
+
+    const deliverymanId = deliveryman.id;
+
     await deliveryman.destroy();
 
-    return res
-      .status(200)
-      .json({ message: 'The deliveryman has been successfully deleted' });
+    return res.status(200).json({
+      message: `The deliveryman with ID: ${deliverymanId} has been successfully deleted`,
+    });
   }
 }
 

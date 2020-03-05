@@ -184,7 +184,25 @@ class OrderController {
   }
 
   async destroy(req, res) {
-    return res.json();
+    const userIsAdmin = await User.findOne({
+      where: { id: req.userId, admin: true },
+    });
+    if (!userIsAdmin) {
+      return res
+        .status(401)
+        .json({ error: 'Only admins can update the orders.' });
+    }
+
+    const order = await Orders.findByPk(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Order not found.' });
+
+    const orderId = order.id;
+
+    await order.destroy();
+
+    return res.status(200).json({
+      message: `Order with ID: ${orderId} has been successfully deleted`,
+    });
   }
 }
 
