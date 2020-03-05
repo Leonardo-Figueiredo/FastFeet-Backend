@@ -1,4 +1,5 @@
 import * as Yup from 'yup';
+import { parseISO, format, startOfHour } from 'date-fns';
 
 import Orders from '../models/Orders';
 import Deliveryman from '../models/Deliverymans';
@@ -155,20 +156,48 @@ class OrderController {
       end_date,
     } = req.body;
 
-    if (recipient_id && !(await Recipient.findByPk(recipient_id)))
+    if (recipient_id && !(await Recipient.findByPk(recipient_id))) {
       return res.status(404).json({
         error: `This Recipient(ID): ${recipient_id} does not exists.`,
       });
+    }
 
-    if (deliveryman_id && !(await Deliveryman.findByPk(deliveryman_id)))
+    if (deliveryman_id && !(await Deliveryman.findByPk(deliveryman_id))) {
       return res.status(404).json({
         error: `This Deliveryman(ID): ${deliveryman_id} does not exists.`,
       });
+    }
 
-    if (signature_id && !(await File.findByPk(signature_id)))
+    if (signature_id && !(await File.findByPk(signature_id))) {
       return res.status(404).json({
         error: `This Signature(ID): ${signature_id} does not exists.`,
       });
+    }
+
+    if (start_date) {
+      const schedule = format(parseISO(start_date), 'HH:mm');
+      const hours = schedule.substring(0, 2);
+      const minutes = schedule.substring(3);
+
+      // We need to compare just de value, not the type of minutes variable.
+      // eslint-disable-next-line eqeqeq
+      if (hours < 8 || hours > 18 || minutes != 0) {
+        return res
+          .status(400)
+          .json({ error: `This schedule (${schedule}) is invalid.` });
+      }
+    }
+
+    if (end_date) {
+      const deliveryExists = await Orders.findOne({
+        where: { start_date: null, id },
+      });
+      if (!deliveryExists) {
+        return res.status(401).json({
+          error: `Order with ID: ${id} has not yet been picked up by the Deliveryman.`,
+        });
+      }
+    }
 
     const updatedOrder = await order.update({
       recipient_id,
