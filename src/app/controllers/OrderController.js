@@ -1,11 +1,13 @@
 import * as Yup from 'yup';
-import { parseISO, format, startOfHour } from 'date-fns';
+import { parseISO, format, isBefore } from 'date-fns';
 
 import Orders from '../models/Orders';
 import Deliveryman from '../models/Deliverymans';
 import Recipient from '../models/Recipients';
 import User from '../models/User';
 import File from '../models/Files';
+
+import Mail from '../../lib/Mail';
 
 class OrderController {
   async store(req, res) {
@@ -54,6 +56,19 @@ class OrderController {
       recipient_id,
       signature_id: null,
       product,
+    });
+
+    await Mail.sendMail({
+      to: `${deliveryman.name} <${deliveryman.email}>`,
+      subject: `Nova encomenda para você ${deliveryman.name}`,
+      text: `
+      Olá, ${deliveryman.name}!
+
+      Temos uma nova encomenda disponível para retirada.
+
+      Estamos aguardando.
+      Atenciosamente, equipe FastFeet.
+      `,
     });
 
     return res.json(order);
@@ -174,28 +189,58 @@ class OrderController {
       });
     }
 
+    /**
+     * Check start_date interval.
+     */
     if (start_date) {
       const schedule = format(parseISO(start_date), 'HH:mm');
       const hours = schedule.substring(0, 2);
       const minutes = schedule.substring(3);
 
-      // We need to compare just de value, not the type of minutes variable.
-      // eslint-disable-next-line eqeqeq
-      if (hours < 8 || hours > 18 || minutes != 0) {
+      /**
+       * Check if the date is in a valid period.
+       */
+      if (
+        hours < 8 ||
+        hours > 18 ||
+        minutes < 0 ||
+        minutes > 59 ||
+        // eslint-disable-next-line eqeqeq
+        (hours == 18 && minutes != 0)
+      ) {
         return res
           .status(400)
           .json({ error: `This schedule (${schedule}) is invalid.` });
       }
     }
 
+    /**
+     * Check if the order has been picked up by Deliveryman
+     */
     if (end_date) {
       const deliveryExists = await Orders.findOne({
-        where: { start_date: null, id },
+        where: { id, start_date: null },
       });
-      if (!deliveryExists) {
+      if (deliveryExists) {
         return res.status(401).json({
           error: `Order with ID: ${id} has not yet been picked up by the Deliveryman.`,
         });
+      }
+    }
+
+    /**
+     * Check if  end_date is before start_date || ERROR ||
+     */
+    if (order.start_date) {
+      const checkIsBefore = isBefore(order.start_date, end_date);
+      const dt = order.start_date;
+      const parsed = parseISO(dt);
+      console.log({ dt, parsed });
+
+      if (checkIsBefore) {
+        return res
+          .status()
+          .json({ error: 'The start_date cannot be earlier than end_date.' });
       }
     }
 
@@ -210,6 +255,7 @@ class OrderController {
     });
 
     return res.json(updatedOrder);
+    // return res.json({ ok: 'true' });
   }
 
   async destroy(req, res) {
@@ -227,10 +273,10 @@ class OrderController {
 
     const orderId = order.id;
 
-    await order.destroy();
+    await order.update({ canceled_at: new Date() });
 
     return res.status(200).json({
-      message: `Order with ID: ${orderId} has been successfully deleted`,
+      message: `Order with ID: ${orderId} has been successfully canceled`,
     });
   }
 }
