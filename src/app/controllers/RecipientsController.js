@@ -6,16 +6,14 @@ class RecipientsController {
   async store(req, res) {
     const schema = Yup.object().shape({
       name: Yup.string().required(),
-      cpf: Yup.string()
-        .required()
-        .min(11)
-        .max(11),
+      // cpf: Yup.number()
+      // .required()
+      // .min(11)
+      // .max(11),
       street: Yup.string()
         .required()
-        .max(30),
-      number: Yup.string()
-        .required()
-        .max(5),
+        .max(200),
+      // number: Yup.number().required(),
       complement: Yup.string()
         .required()
         .max(30),
@@ -25,9 +23,7 @@ class RecipientsController {
       city: Yup.string()
         .required()
         .max(15),
-      zipcode: Yup.string()
-        .required()
-        .max(8),
+      // zipcode: Yup.number().required(),
     });
 
     if (!(await schema.isValid(req.body))) {

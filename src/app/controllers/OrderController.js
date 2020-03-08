@@ -41,7 +41,12 @@ class OrderController {
       return res.status(400).json({ error: 'Request is not valid.' });
     }
 
-    const { deliveryman_id, recipient_id, product } = req.body;
+    const {
+      deliveryman_id,
+      recipient_id,
+      product,
+      signature_id = null,
+    } = req.body;
 
     const deliveryman = await Deliveryman.findByPk(deliveryman_id);
     const recipient = await Recipient.findByPk(recipient_id);
@@ -54,21 +59,24 @@ class OrderController {
     const order = await Orders.create({
       deliveryman_id,
       recipient_id,
-      signature_id: null,
+      signature_id,
       product,
     });
 
     await Mail.sendMail({
       to: `${deliveryman.name} <${deliveryman.email}>`,
       subject: `Nova encomenda para você ${deliveryman.name}`,
-      text: `
-      Olá, ${deliveryman.name}!
-
-      Temos uma nova encomenda disponível para retirada.
-
-      Estamos aguardando.
-      Atenciosamente, equipe FastFeet.
-      `,
+      template: 'deliveryStore',
+      context: {
+        deliveryman: deliveryman.name,
+        recipient: recipient.name,
+        state: recipient.state,
+        city: recipient.city,
+        street: recipient.street,
+        number: recipient.number,
+        zipcode: recipient.zipcode,
+        complement: recipient.complement,
+      },
     });
 
     return res.json(order);
@@ -229,18 +237,16 @@ class OrderController {
     }
 
     /**
-     * Check if  end_date is before start_date || ERROR ||
+     * Check if  end_date is before start_date
      */
     if (order.start_date) {
-      const checkIsBefore = isBefore(order.start_date, end_date);
-      const dt = order.start_date;
-      const parsed = parseISO(dt);
-      console.log({ dt, parsed });
+      const checkIsBefore = isBefore(parseISO(end_date), order.start_date);
+      // const parsed = toDate();
 
       if (checkIsBefore) {
         return res
-          .status()
-          .json({ error: 'The start_date cannot be earlier than end_date.' });
+          .status(400)
+          .json({ error: 'The start date cannot be earlier than end date.' });
       }
     }
 
@@ -255,7 +261,6 @@ class OrderController {
     });
 
     return res.json(updatedOrder);
-    // return res.json({ ok: 'true' });
   }
 
   async destroy(req, res) {
