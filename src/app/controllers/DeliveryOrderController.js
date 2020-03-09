@@ -1,4 +1,6 @@
 import { Op } from 'sequelize';
+import * as Yup from 'yup';
+
 import Deliverymans from '../models/Deliverymans';
 import Orders from '../models/Orders';
 
@@ -55,8 +57,30 @@ class DeliveryController {
     return res.json(order);
   }
 
-  async destroy(req, res) {
-    return res.json({});
+  async update(req, res) {
+    const { id, order_id } = req.params;
+    const deliveryman = await Deliverymans.findByPk(id);
+
+    if (!deliveryman) {
+      return res
+        .status(404)
+        .json({ error: `Deliveryman with id: ${id} not found.` });
+    }
+
+    const schema = Yup.object().shape({
+      start_date: Yup.date(),
+      end_date: Yup.date(),
+    });
+    if (!(await schema.isValid(req.body))) {
+      return res.status(400).json({ error: 'Request is not valid.' });
+    }
+
+    const order = await Orders.findByPk(order_id);
+    if (!order) {
+      return res.status(404).json({ error: `Order ${order_id} not found.` });
+    }
+
+    return res.json(order);
   }
 }
 
