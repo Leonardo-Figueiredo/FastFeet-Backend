@@ -7,7 +7,8 @@ import Recipient from '../models/Recipients';
 import User from '../models/User';
 import File from '../models/Files';
 
-import Mail from '../../lib/Mail';
+import OrderMail from '../jobs/OrderMail';
+import Queue from '../../lib/Queue';
 
 class OrderController {
   async store(req, res) {
@@ -63,20 +64,9 @@ class OrderController {
       product,
     });
 
-    await Mail.sendMail({
-      to: `${deliveryman.name} <${deliveryman.email}>`,
-      subject: `Nova encomenda para você ${deliveryman.name}`,
-      template: 'deliveryStore',
-      context: {
-        deliveryman: deliveryman.name,
-        recipient: recipient.name,
-        state: recipient.state,
-        city: recipient.city,
-        street: recipient.street,
-        number: recipient.number,
-        zipcode: recipient.zipcode,
-        complement: recipient.complement,
-      },
+    await Queue.add(OrderMail.key, {
+      recipient,
+      deliveryman,
     });
 
     return res.json(order);
