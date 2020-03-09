@@ -231,7 +231,6 @@ class OrderController {
      */
     if (order.start_date) {
       const checkIsBefore = isBefore(parseISO(end_date), order.start_date);
-      // const parsed = toDate();
 
       if (checkIsBefore) {
         return res
