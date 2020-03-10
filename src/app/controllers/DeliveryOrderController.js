@@ -1,16 +1,11 @@
 import { Op } from 'sequelize';
 import * as Yup from 'yup';
-import {
-  format,
-  parseISO,
-  isBefore,
-  startOfDay,
-  endOfDay,
-  toDate,
-} from 'date-fns';
+import { startOfDay, endOfDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 import Deliverymans from '../models/Deliverymans';
 import Orders from '../models/Orders';
+import File from '../models/Files';
 
 class DeliveryController {
   async index(req, res) {
@@ -65,9 +60,12 @@ class DeliveryController {
     return res.json(order);
   }
 
-  async store(req, res) {
+  async update(req, res) {
     const { id: deliveryman_id, order_id } = req.params;
 
+    /**
+     * Check if Deliveryman exists.
+     */
     const deliveryman = await Deliverymans.findByPk(deliveryman_id);
     if (!deliveryman) {
       return res
@@ -75,103 +73,103 @@ class DeliveryController {
         .json({ error: `Deliveryman ${deliveryman_id} not found.` });
     }
 
+    /**
+     * Check if Order exists.
+     */
     const order = await Orders.findByPk(order_id);
     if (!order) {
       return res.status(404).json({ error: `Order ${order_id} not found.` });
-    }
-
-    const schema = Yup.object().shape({ start_date: Yup.date().required() });
-    if (!(await schema.isValid(req.body))) {
-      return res.status(400).json({ error: 'Request is not valid.' });
-    }
-
-    if (order.start_date) {
-      return res.status(401).json({ error: 'Start date already exists.' });
-    }
-
-    if (order.end_date) {
-      return res.status(401).json({ error: 'This order already finalized.' });
-    }
-
-    const { start_date } = req.body;
-
-    const parsedDate = toDate(start_date);
-
-    const { count, rows } = await Orders.findAndCountAll({
-      where: {
-        start_date: {
-          [Op.ne]: null,
-          [Op.between]: [startOfDay(parsedDate), endOfDay(parsedDate)],
-        },
-        deliveryman_id,
-      },
-    });
-
-    if (count > 5) {
-      return res
-        .status(401)
-        .json({ error: 'You have expired your withdrawal limit.' });
-    }
-    /**
-     * Change start_date to upgradet_at, and we can limit a 5 times.
-     */
-
-    await order.update({ start_date });
-
-    return res.json();
-  }
-
-  async update(req, res) {
-    const { id, order_id } = req.params;
-    const deliveryman = await Deliverymans.findByPk(id);
-
-    if (!deliveryman) {
-      return res
-        .status(404)
-        .json({ error: `Deliveryman with id: ${id} not found.` });
     }
 
     const schema = Yup.object().shape({
       start_date: Yup.date(),
       end_date: Yup.date(),
+      signature_id: Yup.number()
+        .positive()
+        .when('end_date', (end_date, field) =>
+          end_date ? field.required() : field
+        ),
     });
     if (!(await schema.isValid(req.body))) {
       return res.status(400).json({ error: 'Request is not valid.' });
     }
 
-    const order = await Orders.findByPk(order_id);
-    if (!order) {
-      return res.status(404).json({ error: `Order ${order_id} not found.` });
-    }
+    const { start_date, end_date, signature_id } = req.body;
 
-    const { start_date, end_date } = req.body;
-
-    if (start_date) {
-      if (order.start_date) {
-        return res.status(401).json({ error: 'Start date already exists.' });
-      }
+    if (!(await File.findByPk(signature_id))) {
+      return res.status(404).json({ error: 'This signature do not exists.' });
     }
 
     /**
-     * Check if  end_date is before start_date && if have a started date.
+     * Check if start date and end date are in the same request.
      */
-    if (end_date) {
-      if (order.start_date) {
-        const checkIsBefore = isBefore(parseISO(end_date), order.start_date);
-
-        if (checkIsBefore) {
-          return res
-            .status(400)
-            .json({ error: 'The start date cannot be earlier than end date.' });
-        }
-      } else {
-        return res
-          .status(401)
-          .json({ error: 'You cant finalize an delivery without start.' });
-      }
+    if (start_date && end_date) {
+      return res
+        .status(401)
+        .json({ error: "You can't send end an start date together." });
     }
 
-    return res.json(order);
+    /**
+     * Check if delivery man tries to change the start date.
+     */
+    if (start_date && order.start_date) {
+      return res.status(401).json({ error: 'Start date already exists.' });
+    }
+
+    /**
+     * Check if order already finalized.
+     */
+    if (order.end_date) {
+      return res.status(401).json({ error: 'This order already finalized.' });
+    }
+
+    /**
+     * Check if this order belongs to this deliveryman.
+     */
+    // eslint-disable-next-line eqeqeq
+    if (order.deliveryman_id != deliveryman_id) {
+      return res
+        .status(401)
+        .json({ error: 'This order belongs a another deliveryman.' });
+    }
+
+    const today = new Date();
+
+    const withdrawals = await Orders.count({
+      where: {
+        deliveryman_id,
+        updated_at: {
+          [Op.ne]: null,
+          [Op.between]: [
+            startOfDay(today, { locale: ptBR }),
+            endOfDay(today, { locale: ptBR }),
+          ],
+        },
+      },
+      limit: 6,
+    });
+
+    /**
+     * Check if Deliveryman already made 5 withdrawls.
+     */
+    if (withdrawals > 5) {
+      return res
+        .status(401)
+        .json({ error: 'You have expired your withdrawal limit.' });
+    }
+
+    /**
+     * Check if signature_id exists without end_date
+     */
+    if (signature_id && !end_date) {
+      return res
+        .status(401)
+        .json({ error: 'End date is required if you send a signature.' });
+    }
+
+    // await order.update({ start_date, end_date, signature_id });
+
+    return res.json();
   }
 }
 

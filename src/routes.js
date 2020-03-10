@@ -40,12 +40,9 @@ routes.delete('/order/:id', OrderController.destroy);
 
 routes.get('/deliveryman/:id/deliveries', DeliveryOrderController.index);
 routes.get('/deliveryman/:id/delivered', DeliveryOrderController.show);
-routes.post(
-  '/deliveryman/:id/deliveries/:order_id',
-  DeliveryOrderController.store
-);
 routes.put(
   '/deliveryman/:id/deliveries/:order_id',
+  upload.single('signature'),
   DeliveryOrderController.update
 );
 
