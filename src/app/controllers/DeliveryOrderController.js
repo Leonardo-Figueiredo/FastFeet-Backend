@@ -1,6 +1,6 @@
 import { Op } from 'sequelize';
 import * as Yup from 'yup';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, isBefore, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import Deliverymans from '../models/Deliverymans';
@@ -96,10 +96,6 @@ class DeliveryController {
 
     const { start_date, end_date, signature_id } = req.body;
 
-    if (!(await File.findByPk(signature_id))) {
-      return res.status(404).json({ error: 'This signature do not exists.' });
-    }
-
     /**
      * Check if start date and end date are in the same request.
      */
@@ -159,7 +155,7 @@ class DeliveryController {
     }
 
     /**
-     * Check if signature_id exists without end_date
+     * Check if signature_id without end_date
      */
     if (signature_id && !end_date) {
       return res
@@ -167,9 +163,33 @@ class DeliveryController {
         .json({ error: 'End date is required if you send a signature.' });
     }
 
-    // await order.update({ start_date, end_date, signature_id });
+    /**
+     * Check if signature_id exists
+     */
+    if (signature_id && !(await File.findByPk(signature_id))) {
+      return res.status(404).json({ error: 'This signature do not exists.' });
+    }
 
-    return res.json();
+    /**
+     * Check if start date exists to put the end_date
+     */
+    if (end_date && !order.start_date) {
+      return res
+        .status(401)
+        .json({ error: 'This order has not yet been withdrawn' });
+    }
+
+    /**
+     * Check if end_date is before start date.
+     */
+    if (isBefore(parseISO(end_date), order.start_date)) {
+      return res
+        .status(401)
+        .json({ error: 'End date cannot be earlier than start date.' });
+    }
+    await order.update({ start_date, end_date, signature_id });
+
+    return res.json(order);
   }
 }
 
