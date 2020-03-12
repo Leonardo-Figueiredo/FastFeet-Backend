@@ -3,6 +3,9 @@ import * as Yup from 'yup';
 import Orders from '../models/Orders';
 import DeliveryProblems from '../models/DeliveryProblems';
 import Deliveryman from '../models/Deliverymans';
+import CancellationMail from '../jobs/CancellationMail';
+
+import Queue from '../../lib/Queue';
 
 class DeliveryProblemsController {
   async store(req, res) {
@@ -95,6 +98,13 @@ class DeliveryProblemsController {
           model: Orders,
           as: 'orders',
           attributes: ['id', 'canceled_at'],
+          include: [
+            {
+              model: Deliveryman,
+              as: 'deliveryman',
+              attributes: ['name', 'email'],
+            },
+          ],
         },
       ],
     });
@@ -107,9 +117,15 @@ class DeliveryProblemsController {
       return res.status(401).json({ error: 'This order already canceled.' });
     }
 
-    await problem.orders.update({ canceled_at: new Date() });
+    const canceledOrder = await problem.orders.update({
+      canceled_at: new Date(),
+    });
 
-    return res.json(problem);
+    await Queue.add(CancellationMail.key, {
+      problem,
+    });
+
+    return res.json(canceledOrder);
   }
 }
 
