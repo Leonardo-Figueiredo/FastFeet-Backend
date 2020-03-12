@@ -1,3 +1,5 @@
+import { format, parseISO } from 'date-fns';
+
 import Mail from '../../lib/Mail';
 
 class CancellationMail {
@@ -5,17 +7,20 @@ class CancellationMail {
     return 'CancellationMail';
   }
 
-  async handle(data) {
+  async handle({ data }) {
     const { problem } = data;
 
     await Mail.sendMail({
-      to: `${problem.deliveryman.name} <${problem.deliveryman.email}>`,
-      subject: `Encomenda cancelada ${problem.delivery_id}`,
+      to: `${problem.orders.deliveryman.name} <${problem.orders.deliveryman.email}>`,
+      subject: `A encomenda ${problem.delivery_id} foi cancelada.`,
       template: 'cancellation',
       context: {
-        deliveryman: problem.deliveryman.name,
+        deliveryman: problem.orders.deliveryman.name,
         order: problem.delivery_id,
-        canceled_at: problem.order.canceled_at,
+        canceled_at: format(
+          parseISO(problem.orders.canceled_at),
+          'dd/MM/yyyy - HH:mm'
+        ),
         description: problem.description,
       },
     });

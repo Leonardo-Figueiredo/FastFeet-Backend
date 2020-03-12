@@ -3,6 +3,7 @@ import * as Yup from 'yup';
 import Orders from '../models/Orders';
 import DeliveryProblems from '../models/DeliveryProblems';
 import Deliveryman from '../models/Deliverymans';
+
 import CancellationMail from '../jobs/CancellationMail';
 
 import Queue from '../../lib/Queue';
@@ -92,7 +93,7 @@ class DeliveryProblemsController {
     const { problem_id } = req.params;
 
     const problem = await DeliveryProblems.findByPk(problem_id, {
-      attributes: ['id'],
+      attributes: ['id', 'delivery_id', 'description'],
       include: [
         {
           model: Orders,
@@ -118,6 +119,7 @@ class DeliveryProblemsController {
     }
 
     const canceledOrder = await problem.orders.update({
+      attributes: ['id', 'canceled_at'],
       canceled_at: new Date(),
     });
 
@@ -126,6 +128,7 @@ class DeliveryProblemsController {
     });
 
     return res.json(canceledOrder);
+    // return res.json(problem);
   }
 }
 
